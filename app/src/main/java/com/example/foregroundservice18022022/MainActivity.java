@@ -14,6 +14,7 @@ import android.widget.Button;
 public class MainActivity extends AppCompatActivity {
 
     Button mBtnStartBackground,mBtnStopBackground;
+    Button mBtnStartForeground,mBtnStopForeground;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -21,6 +22,8 @@ public class MainActivity extends AppCompatActivity {
 
         mBtnStartBackground = findViewById(R.id.buttonStartBackground);
         mBtnStopBackground = findViewById(R.id.buttonStopBackground);
+        mBtnStartForeground = findViewById(R.id.buttonStartForegroundService);
+        mBtnStopForeground = findViewById(R.id.buttonStopForegroundService);
 
         mBtnStartBackground.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -38,6 +41,14 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+
+        mBtnStartForeground.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MainActivity.this,MyService.class);
+                startService(intent);
+            }
+        });
     }
 
 

@@ -19,4 +19,16 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
 
+
+    <Button
+        android:id="@+id/buttonStartForegroundService"
+        android:text="Start Foreground Service"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+    <Button
+        android:id="@+id/buttonStopForegroundService"
+        android:text="Stop Foreground Service"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
 </LinearLayout>
