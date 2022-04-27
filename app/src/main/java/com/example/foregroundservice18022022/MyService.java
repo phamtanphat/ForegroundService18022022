@@ -2,8 +2,11 @@ package com.example.foregroundservice18022022;
 
 import android.app.Notification;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.media.MediaPlayer;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -20,32 +23,72 @@ public class MyService extends Service {
     private ServiceHandler serviceHandler;
     private NotificationManager notificationManager;
     private Notification notification;
+    private boolean isPlaying = true;
+
+    private int RESUME_MUSIC_CODE = 0;
+    private int PAUSE_MUSIC_CODE = 1;
 
     private final class ServiceHandler extends Handler {
+        private MediaPlayer mediaPlayer;
+        private int currentTime = 0;
+
         public ServiceHandler(Looper looper) {
             super(looper);
         }
 
         @Override
         public void handleMessage(Message msg) {
-            // Normally we would do some work here, like download a file.
-            // For our sample, we just sleep for 5 seconds.
-//            try {
-//                long value = 0;
-//                for (long i = 0; i < 5; i++) {
-//                    Thread.sleep(5000);
-//                    value += i;
-//                }
-//                Log.d("BBB",Thread.currentThread().getName());
-//                makenoti(value+ "");
-//                isProgress = 0;
-//            } catch (InterruptedException e) {
-//                // Restore interrupt status.
-//                Thread.currentThread().interrupt();
-//            }
-//            // Stop the service using the startId, so that we don't stop
-//            // the service in the middle of handling another job
-//            stopSelf(msg.arg1);
+            Bundle bundle = msg.getData();
+            switch (msg.what) {
+                case -1:
+                    int resourceMusic = bundle.getInt("mp3");
+                    startMp3(resourceMusic);
+                    break;
+                case 0:
+                    resumeMp3();
+                    break;
+                case 1:
+                    pauseMp3();
+                    break;
+            }
+        }
+
+        private void pauseMp3() {
+            if (mediaPlayer != null && mediaPlayer.isPlaying()){
+                mediaPlayer.pause();
+                currentTime = mediaPlayer.getCurrentPosition();
+                isPlaying = false;
+                notification = makeNotification("Music 1", "Singer A", false);
+                notificationManager.notify(1, notification);
+            }
+        }
+
+        private void resumeMp3() {
+            if (mediaPlayer != null){
+                mediaPlayer.seekTo(currentTime);
+                mediaPlayer.start();
+                isPlaying = true;
+                notification = makeNotification("Music 1", "Singer A", true);
+                notificationManager.notify(1, notification);
+            }
+        }
+
+        private void startMp3(int resourceMusic) {
+            if (mediaPlayer != null) {
+                mediaPlayer.stop();
+                mediaPlayer.release();
+                mediaPlayer = null;
+            }
+            mediaPlayer = MediaPlayer.create(getApplicationContext(), resourceMusic);
+            mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                @Override
+                public void onPrepared(MediaPlayer mediaPlayer) {
+                    mediaPlayer.start();
+                    isPlaying = true;
+                    notification = makeNotification("Music 1", "Singer A", true);
+                    notificationManager.notify(1, notification);
+                }
+            });
         }
 
     }
@@ -69,19 +112,34 @@ public class MyService extends Service {
         notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 
         // start foreground
-        notification = makeNotification("Start foreground service");
-        startForeground(1,notification);
+        notification = makeNotification("Music 1", "Singer A", isPlaying);
+        startForeground(1, notification);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-//        if (isProgress == 0){
-//            isProgress = 1;
-//            Message msg = serviceHandler.obtainMessage();
-//            msg.arg1 = startId;
-//            serviceHandler.sendMessage(msg);
-//        }
-        return START_REDELIVER_INTENT;
+        int requestCode = intent.getIntExtra("requestCode", -1);
+        Message msg = serviceHandler.obtainMessage();
+        Bundle bundle = new Bundle();
+        switch (requestCode) {
+            case -1:
+                bundle.putInt("mp3", R.raw.nhac);
+                msg.what = -1;
+                msg.setData(bundle);
+                serviceHandler.sendMessage(msg);
+                break;
+            case 0:
+                msg.what = 0;
+                serviceHandler.sendMessage(msg);
+                break;
+            case 1:
+                msg.what = 1;
+                serviceHandler.sendMessage(msg);
+                break;
+        }
+
+
+        return START_NOT_STICKY;
     }
 
     @Override
@@ -89,13 +147,38 @@ public class MyService extends Service {
         super.onDestroy();
     }
 
-    public Notification makeNotification(String message) {
+    public Notification makeNotification(String title, String singer, boolean isPlaying) {
+        Intent intentResumeMusic = new Intent(this, MyService.class);
+        intentResumeMusic.putExtra("requestCode", RESUME_MUSIC_CODE);
+
+        PendingIntent pendingIntentResumeMusic = PendingIntent.getService(
+                this,
+                0,
+                intentResumeMusic,
+                PendingIntent.FLAG_UPDATE_CURRENT
+        );
+
+        Intent intentPauseMusic = new Intent(this, MyService.class);
+        intentPauseMusic.putExtra("requestCode", PAUSE_MUSIC_CODE);
+
+        PendingIntent pendingIntentPauseMusic = PendingIntent.getService(
+                this,
+                0,
+                intentPauseMusic,
+                PendingIntent.FLAG_UPDATE_CURRENT
+        );
+
+
         NotificationCompat.Builder notification = new NotificationCompat.Builder(getApplicationContext(), "CHANNEL_ID")
                 .setSmallIcon(R.drawable.ic_launcher_background)
                 .setWhen(System.currentTimeMillis())  //When the event occurred, now, since noti are stored by time.
-                .setContentTitle("Service")   //Title message top row.
-                .setContentText(message)  //message when looking at the notification, second row
-                .setAutoCancel(true);
+                .setContentTitle(title)   //Title message top row.
+                .setContentText(singer)
+                .addAction(
+                        isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
+                        isPlaying ? "Pause" : "Play",
+                        isPlaying ? pendingIntentPauseMusic : pendingIntentResumeMusic
+                );
 
         return notification.build();
     }
