@@ -14,6 +14,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -25,6 +26,7 @@ public class MyService extends Service {
     private NotificationManager notificationManager;
     private Notification notification;
     private boolean isPlaying = true;
+    private boolean isUnBind = false;
 
     private int RESUME_MUSIC_CODE = 0;
     private int PAUSE_MUSIC_CODE = 1;
@@ -55,23 +57,38 @@ public class MyService extends Service {
                     pauseMp3();
                     break;
             }
+            if (!isUnBind){
+                updateCurrentTime();
+            }
+
+        }
+
+        private void disableUpdate() {
+            if (mediaPlayer != null && mediaPlayer.isPlaying()){
+                handler.removeCallbacks(runnable);
+            }
+        }
+
+        private void updateCurrentTime(){
             if (mediaPlayer != null) {
-                if (mediaPlayer.isPlaying()) {
+                if (isPlaying) {
                     handler = new Handler();
-                    handler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (mediaPlayer.getCurrentPosition() < mediaPlayer.getDuration()) {
-                                onListenDuration.onCurrentDuration(mediaPlayer.getCurrentPosition());
-                            }
-                            if (isPlaying){
-                                handler.postDelayed(this,1000);
-                            }
-                        }
-                    }, 1000);
+                    handler.postDelayed(runnable, 500);
                 }
             }
         }
+
+        private Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                if (mediaPlayer.isPlaying() && mediaPlayer.getCurrentPosition() < mediaPlayer.getDuration()) {
+                    onListenDuration.onCurrentDuration(mediaPlayer.getCurrentPosition());
+                }
+                if (isPlaying){
+                    handler.postDelayed(this,500);
+                }
+            }
+        };
 
         private void pauseMp3() {
             if (mediaPlayer != null && mediaPlayer.isPlaying()){
@@ -110,7 +127,7 @@ public class MyService extends Service {
     }
 
 
-    private class MyBound extends Binder {
+    public class MyBound extends Binder {
 
         MyService getService() {
             return MyService.this;
@@ -123,6 +140,19 @@ public class MyService extends Service {
         return new MyBound();
     }
 
+    @Override
+    public boolean onUnbind(Intent intent) {
+        isUnBind = true;
+        serviceHandler.disableUpdate();
+        return true;
+    }
+
+    @Override
+    public void onRebind(Intent intent) {
+        isUnBind = false;
+        serviceHandler.updateCurrentTime();
+        super.onRebind(intent);
+    }
     @Override
     public void onCreate() {
         super.onCreate();
@@ -175,7 +205,7 @@ public class MyService extends Service {
                 this,
                 0,
                 intentMusic,
-                PendingIntent.FLAG_MUTABLE
+                PendingIntent.FLAG_UPDATE_CURRENT
         );
 
         NotificationCompat.Builder notification = new NotificationCompat.Builder(getApplicationContext(), "CHANNEL_ID")
