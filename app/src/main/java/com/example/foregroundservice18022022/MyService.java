@@ -6,6 +6,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.media.MediaPlayer;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -27,10 +28,13 @@ public class MyService extends Service {
 
     private int RESUME_MUSIC_CODE = 0;
     private int PAUSE_MUSIC_CODE = 1;
+    private OnListenDuration onListenDuration;
+
 
     private final class ServiceHandler extends Handler {
         private MediaPlayer mediaPlayer;
         private int currentTime = 0;
+        private Handler handler;
 
         public ServiceHandler(Looper looper) {
             super(looper);
@@ -50,6 +54,22 @@ public class MyService extends Service {
                 case 1:
                     pauseMp3();
                     break;
+            }
+            if (mediaPlayer != null) {
+                if (mediaPlayer.isPlaying()) {
+                    handler = new Handler();
+                    handler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (mediaPlayer.getCurrentPosition() < mediaPlayer.getDuration()) {
+                                onListenDuration.onCurrentDuration(mediaPlayer.getCurrentPosition());
+                            }
+                            if (isPlaying){
+                                handler.postDelayed(this,1000);
+                            }
+                        }
+                    }, 1000);
+                }
             }
         }
 
@@ -81,6 +101,7 @@ public class MyService extends Service {
             mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
                 @Override
                 public void onPrepared(MediaPlayer mediaPlayer) {
+                    isPlaying = true;
                     mediaPlayer.start();
                 }
             });
@@ -89,10 +110,17 @@ public class MyService extends Service {
     }
 
 
+    private class MyBound extends Binder {
+
+        MyService getService() {
+            return MyService.this;
+        }
+    }
+
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return new MyBound();
     }
 
     @Override
@@ -147,7 +175,7 @@ public class MyService extends Service {
                 this,
                 0,
                 intentMusic,
-                PendingIntent.FLAG_UPDATE_CURRENT
+                PendingIntent.FLAG_MUTABLE
         );
 
         NotificationCompat.Builder notification = new NotificationCompat.Builder(getApplicationContext(), "CHANNEL_ID")
@@ -164,4 +192,11 @@ public class MyService extends Service {
         return notification.build();
     }
 
+    public void setOnListenDuration(OnListenDuration onListenDuration) {
+        this.onListenDuration = onListenDuration;
+    }
+
+    interface OnListenDuration {
+        void onCurrentDuration(long time);
+    }
 }
