@@ -55,11 +55,10 @@ public class MyService extends Service {
 
         private void pauseMp3() {
             if (mediaPlayer != null && mediaPlayer.isPlaying()){
-                mediaPlayer.pause();
                 currentTime = mediaPlayer.getCurrentPosition();
+                mediaPlayer.pause();
                 isPlaying = false;
-                notification = makeNotification("Music 1", "Singer A", false);
-                notificationManager.notify(1, notification);
+                notificationManager.notify(1, makeNotification("Music 1", "Singer A", false));
             }
         }
 
@@ -68,8 +67,7 @@ public class MyService extends Service {
                 mediaPlayer.seekTo(currentTime);
                 mediaPlayer.start();
                 isPlaying = true;
-                notification = makeNotification("Music 1", "Singer A", true);
-                notificationManager.notify(1, notification);
+                notificationManager.notify(1, makeNotification("Music 1", "Singer A", true));
             }
         }
 
@@ -84,9 +82,6 @@ public class MyService extends Service {
                 @Override
                 public void onPrepared(MediaPlayer mediaPlayer) {
                     mediaPlayer.start();
-                    isPlaying = true;
-                    notification = makeNotification("Music 1", "Singer A", true);
-                    notificationManager.notify(1, notification);
                 }
             });
         }
@@ -112,8 +107,7 @@ public class MyService extends Service {
         notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 
         // start foreground
-        notification = makeNotification("Music 1", "Singer A", isPlaying);
-        startForeground(1, notification);
+        startForeground(1, makeNotification("Music 1", "Singer A", isPlaying));
     }
 
     @Override
@@ -137,8 +131,6 @@ public class MyService extends Service {
                 serviceHandler.sendMessage(msg);
                 break;
         }
-
-
         return START_NOT_STICKY;
     }
 
@@ -148,37 +140,26 @@ public class MyService extends Service {
     }
 
     public Notification makeNotification(String title, String singer, boolean isPlaying) {
-        Intent intentResumeMusic = new Intent(this, MyService.class);
-        intentResumeMusic.putExtra("requestCode", RESUME_MUSIC_CODE);
+        Intent intentMusic = new Intent(this, MyService.class);
+        intentMusic.putExtra("requestCode", isPlaying ? PAUSE_MUSIC_CODE : RESUME_MUSIC_CODE);
 
-        PendingIntent pendingIntentResumeMusic = PendingIntent.getService(
+        PendingIntent pendingIntent = PendingIntent.getService(
                 this,
                 0,
-                intentResumeMusic,
+                intentMusic,
                 PendingIntent.FLAG_UPDATE_CURRENT
         );
-
-        Intent intentPauseMusic = new Intent(this, MyService.class);
-        intentPauseMusic.putExtra("requestCode", PAUSE_MUSIC_CODE);
-
-        PendingIntent pendingIntentPauseMusic = PendingIntent.getService(
-                this,
-                0,
-                intentPauseMusic,
-                PendingIntent.FLAG_UPDATE_CURRENT
-        );
-
 
         NotificationCompat.Builder notification = new NotificationCompat.Builder(getApplicationContext(), "CHANNEL_ID")
                 .setSmallIcon(R.drawable.ic_launcher_background)
                 .setWhen(System.currentTimeMillis())  //When the event occurred, now, since noti are stored by time.
                 .setContentTitle(title)   //Title message top row.
-                .setContentText(singer)
-                .addAction(
-                        isPlaying ? android.R.drawable.ic_media_pause : android.R.drawable.ic_media_play,
-                        isPlaying ? "Pause" : "Play",
-                        isPlaying ? pendingIntentPauseMusic : pendingIntentResumeMusic
-                );
+                .setContentText(singer);
+        if (isPlaying) {
+            notification.addAction(android.R.drawable.ic_media_pause, "Pause", pendingIntent);
+        } else {
+            notification.addAction(android.R.drawable.ic_media_play, "Play", pendingIntent);
+        }
 
         return notification.build();
     }
